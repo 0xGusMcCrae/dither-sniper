@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 
+from parse_message import parse_message
+
 from logger_config import LoggerConfig
 
 logger_config = LoggerConfig()
@@ -36,7 +38,7 @@ async def main():
 
     @client.on(events.NewMessage(chats=peer))
     async def handler(event):
-        message = event.message.message
+        message = parse_message(event.message.message)
         log.info(f'New message: {message}')
         # response = requests.post(rust_bot_endpoint, json={'message': message})
         # log.info(f'Response from Rust bot: {response.status_code} - {response.text}')
