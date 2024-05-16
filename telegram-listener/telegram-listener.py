@@ -2,6 +2,12 @@ from telethon import TelegramClient, events
 import requests
 import os
 from dotenv import load_dotenv
+from datetime import datetime
+
+from logger_config import LoggerConfig
+
+logger_config = LoggerConfig()
+log = logger_config.get_logger()
 
 load_dotenv()
 
@@ -22,7 +28,7 @@ bot_username = 'DitherSeerBot'
 
 async def main():
     await client.start(phone_number)
-    print("Client Created")
+    log.info("Client Created")
 
     # Create an input peer using the group ID and access hash
     from telethon.tl.types import InputPeerChannel
@@ -31,9 +37,9 @@ async def main():
     @client.on(events.NewMessage(chats=peer))
     async def handler(event):
         message = event.message.message
-        print(f'New message: {message}')
+        log.info(f'New message: {message}')
         # response = requests.post(rust_bot_endpoint, json={'message': message})
-        # print(f'Response from Rust bot: {response.status_code} - {response.text}')
+        # log.info(f'Response from Rust bot: {response.status_code} - {response.text}')
 
 
     await client.run_until_disconnected()
