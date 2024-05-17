@@ -38,7 +38,7 @@ async fn handle_incoming_message(body: Value) -> Result<impl warp::Reply, Infall
         let jup = JupAg::new().expect("Could not initialize jup");
 
         let in_token = "So11111111111111111111111111111111111111112"; //solana;
-        let in_amount = LAMPORTS_PER_SOL / 100; // 1 sol
+        let in_amount = LAMPORTS_PER_SOL; // 1 sol
         let slippage = 1000; // 10%
 
         let quote_response = jup.get_quote(in_token, out_token, in_amount, slippage).await.expect("could not get quote");
