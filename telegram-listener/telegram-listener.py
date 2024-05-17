@@ -24,12 +24,10 @@ discord_bot_token = os.getenv('DISCORD_BOT_TOKEN')
 discord_channel_id = int(os.getenv('DISCORD_CHANNEL_ID'))
 
 
-# Initialize the Telegram client
 client = TelegramClient('dither_listener', api_id, api_hash)
 
 client.start(phone_number)
 
-# Use the bot's username
 bot_username = 'DitherSeerBot' 
 
 intents = discord.Intents.default()
@@ -52,18 +50,16 @@ async def main():
     await client.start(phone_number)
     log.info("Client Created")
 
-    # Create an input peer using the group ID and access hash
     from telethon.tl.types import InputPeerChannel
     peer = InputPeerChannel(channel_id=group_id, access_hash=group_access_hash)
 
     @client.on(events.NewMessage(chats=peer))
     async def handler(event):
         message = event.message.message
-        if message:
+        parsed_message = parse_message(message)
+        if parsed_message:  # still sending the unparsed message here, just want to use the parser to filter spam
             log.info(f'New message: {message}')
-        # response = requests.post(rust_bot_endpoint, json={'message': message})
-        # log.info(f'Response from Rust bot: {response.status_code} - {response.text}')
-        await send_to_discord(message, indent=4)
+        await send_to_discord(message)
 
 
     await client.run_until_disconnected()
