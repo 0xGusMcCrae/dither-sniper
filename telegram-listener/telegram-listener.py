@@ -28,15 +28,19 @@ client = TelegramClient('dither_listener', api_id, api_hash)
 
 client.start(phone_number)
 
-bot_username = 'DitherSeerBot' 
+bot_username = 'boop' 
 
 intents = discord.Intents.default()
+intents.messages = True
+intents.guilds = True
 
 discord_bot = commands.Bot(command_prefix='!', intents=intents)
 
 @discord_bot.event
 async def on_ready():
-    log.info(f'Logged in as {discord_bot.user}')
+    log.info(f'Logged in as {discord_bot.user} (ID: {discord_bot.user.id})')
+    await send_to_discord("hi friends")
+
 
 async def send_to_discord(message):
     channel = discord_bot.get_channel(discord_channel_id)
@@ -65,3 +69,4 @@ async def main():
     await client.run_until_disconnected()
 
 client.loop.run_until_complete(main())
+discord_bot.run(discord_bot_token)
