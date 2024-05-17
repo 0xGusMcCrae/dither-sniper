@@ -11,6 +11,7 @@ use solana_sdk::{
     pubkey::Pubkey,
     signer::keypair::read_keypair_file,
     transport::TransportError,
+    native_token::LAMPORTS_PER_SOL,
 };
 use solana_client::{
     rpc_client::RpcClient,
@@ -146,7 +147,7 @@ impl JupAg {
 
         let swap_url = format!("https://quote-api.jup.ag/v6/swap");
         
-        let swap_response: SwapResponse = self.client
+        let mut swap_response: SwapResponse = self.client
             .post(swap_url)
             .header("Content-Type", "application/json")
             .body(json_body)
@@ -156,6 +157,11 @@ impl JupAg {
             .json()
             .await?;
             
+        println!("Priority fee: {:?}", swap_response.prioritization_fee_lamports);
+        let new_fee = LAMPORTS_PER_SOL/100; //0.01 sol
+        println!("Setting priority fee to: {}", new_fee);
+        swap_response.prioritization_fee_lamports = Some(new_fee);
+
         //decode from base64
         let swap_transaction_buffer = base64::decode(swap_response.swap_transaction)?;
         // println!("Decoded swap transaction buffer length: {}", swap_transaction_buffer.len());
