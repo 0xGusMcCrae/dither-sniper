@@ -32,7 +32,9 @@ client.start(phone_number)
 # Use the bot's username
 bot_username = 'DitherSeerBot' 
 
-discord_bot = commands.Bot(command_prefix='!')
+intents = discord.Intents.default()
+
+discord_bot = commands.Bot(command_prefix='!', intents=intents)
 
 @discord_bot.event
 async def on_ready():
