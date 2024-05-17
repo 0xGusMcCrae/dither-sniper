@@ -3,6 +3,8 @@ import requests
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+import discord
+from discord.ext import commands
 
 from parse_message import parse_message
 
@@ -18,6 +20,8 @@ api_hash = os.getenv('API_HASH')
 phone_number = os.getenv('PHONE_NUMBER')
 group_id = int(os.getenv('GROUP_ID'))
 group_access_hash = os.getenv('ACCESS_HASH')
+discord_bot_token = os.getenv('DISCORD_BOT_TOKEN')
+discord_channel_id = int(os.getenv('DISCORD_CHANNEL_ID'))
 
 
 # Initialize the Telegram client
@@ -27,6 +31,20 @@ client.start(phone_number)
 
 # Use the bot's username
 bot_username = 'DitherSeerBot' 
+
+discord_bot = commands.Bot(command_prefix='!')
+
+@discord_bot.event
+async def on_ready():
+    log.info(f'Logged in as {discord_bot.user}')
+
+async def send_to_discord(message):
+    channel = discord_bot.get_channel(discord_channel_id)
+    if channel:
+        await channel.send(message)
+    else:
+        log.error(f'Could not find channel with ID {discord_channel_id}')
+
 
 async def main():
     await client.start(phone_number)
@@ -38,11 +56,12 @@ async def main():
 
     @client.on(events.NewMessage(chats=peer))
     async def handler(event):
-        message = parse_message(event.message.message)
+        message = event.message.message
         if message:
             log.info(f'New message: {message}')
         # response = requests.post(rust_bot_endpoint, json={'message': message})
         # log.info(f'Response from Rust bot: {response.status_code} - {response.text}')
+        await send_to_discord(message, indent=4)
 
 
     await client.run_until_disconnected()
