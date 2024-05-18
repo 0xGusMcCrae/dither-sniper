@@ -18,6 +18,7 @@ api_hash = os.getenv('API_HASH')
 phone_number = os.getenv('PHONE_NUMBER')
 group_id = int(os.getenv('GROUP_ID'))
 group_access_hash = os.getenv('ACCESS_HASH')
+rust_bot_endpoint = os.getenv("RUST_BOT_ENDPOINT")
 
 
 # Initialize the Telegram client
@@ -41,9 +42,9 @@ async def main():
         message = parse_message(event.message.message)
         if message:
             log.info(f'New message: {message}')
-        # response = requests.post(rust_bot_endpoint, json={'message': message})
-        # log.info(f'Response from Rust bot: {response.status_code} - {response.text}')
-
+            headers = {'Content-Type': 'application/json'}
+            response = requests.post(rust_bot_endpoint, data=message, headers=headers)
+            log.info(f'Response from Rust bot: {response.status_code} - {response.text}')
 
     await client.run_until_disconnected()
 
