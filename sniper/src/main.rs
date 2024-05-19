@@ -32,7 +32,7 @@ use serde_json::Value;
 use std::convert::Infallible;
 
 async fn handle_incoming_message(body: Value) -> Result<impl warp::Reply, Infallible> {
-    if let Some(out_token) = body.get("address").and_then(Value::as_str) {
+    if let Some(out_token) = body.get("Address").and_then(Value::as_str) {
         println!("Token address: {}", out_token);
 
         let jup = JupAg::new().expect("Could not initialize jup");
