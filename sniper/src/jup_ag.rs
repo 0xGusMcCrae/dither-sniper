@@ -181,17 +181,35 @@ impl JupAg {
             let signed_transaction = VersionedTransaction::try_new(message_clone, &[&self.keypair])
                 .expect("Failed to create new VersionedTransaction");
             
-            println!("ok we finna make a tx");
+            println!("Attempting to send tx...");
+            
+            let config = RpcSendTransactionConfig {
+                skip_preflight: true,
+                ..RpcSendTransactionConfig::default()
+            };
 
-            match self.rpc.send_and_confirm_transaction(&signed_transaction) {
+            match self.rpc.send_transaction_with_config(&signed_transaction, config) {
                 Ok(signature) => {
                     println!("Transaction signature: {}", signature);
+                    match self.rpc.confirm_transaction_with_spinner(
+                        &signature,
+                        &recent_blockhash,
+                        CommitmentConfig::finalized(),
+                    ) {
+                        Ok(_) => {
+                            println!("Transaction confirmed: {}", signature);
+                            return Ok(())
+                        },
+                        Err(err) => {
+                            println!("Transaction confirmation failed with error: {}", err);
+                        }
+                    }
                     return Ok(());
                 },
                 Err(err) => {
                     println!("Transaction failed with error: {}. Retrying... ({}/{})", err, attempts+1, 5);
                     attempts += 1;
-                    sleep(Duration::from_secs(1)).await; // Wait before retrying
+                    tokio::time::sleep(Duration::from_millis(100)).await;
                 },
             }
         }
