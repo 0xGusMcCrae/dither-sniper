@@ -6,7 +6,6 @@ use solana_sdk::{
     signature::{Keypair, Signer},
     transaction::{Transaction, VersionedTransaction},
     client::SyncClient,
-    // client::Client,
     commitment_config::CommitmentConfig,
     pubkey::Pubkey,
     signer::keypair::read_keypair_file,
@@ -18,10 +17,16 @@ use solana_client::{
     rpc_config::RpcSendTransactionConfig,
     client_error::{ClientError, ClientErrorKind},
 };
-use std::env;
+use std::{
+    env,
+    sync::Arc,
+};
 use thiserror::Error;
 use tokio;
-use tokio::time::{sleep, Duration};
+use tokio::{
+    time::{sleep, Duration},
+    sync::Mutex,
+};
 use bincode;
 use borsh::BorshDeserialize;
 
@@ -99,7 +104,7 @@ pub struct SwapInfo {
 // #[derive(Clone)]
 pub struct JupAg {
     client: Client,
-    rpc: RpcClient,
+    rpc: Arc<Mutex<RpcClient>>,
     pub keypair: Keypair,
 }
 
@@ -117,7 +122,7 @@ impl JupAg {
 
         Ok(JupAg {
             client,
-            rpc,
+            rpc: Arc::new(Mutex::new(rpc)),
             keypair,
         })
     }
@@ -157,9 +162,9 @@ impl JupAg {
             .json()
             .await?;
             
-        println!("Priority fee: {:?}", swap_response.prioritization_fee_lamports);
-        let new_fee = LAMPORTS_PER_SOL/100; //0.01 sol
-        println!("Setting priority fee to: {}", new_fee);
+        // println!("Priority fee: {:?}", swap_response.prioritization_fee_lamports);
+        let new_fee = LAMPORTS_PER_SOL/200; //0.005 sol
+        // println!("Setting priority fee to: {}", new_fee);
         swap_response.prioritization_fee_lamports = Some(new_fee);
 
         //decode from base64
@@ -171,9 +176,9 @@ impl JupAg {
 
         let mut attempts = 0;
 
-        while attempts < 5 {
-            let recent_blockhash = self.rpc.get_latest_blockhash().expect("Couldn't get latest blockhash");
-            println!("blockhash: {recent_blockhash}");
+        while attempts < 3 {
+            let recent_blockhash = self.rpc.lock().await.get_latest_blockhash().expect("Couldn't get latest blockhash");
+            // println!("blockhash: {recent_blockhash}");
 
             let mut message_clone = transaction.message.clone();
             message_clone.set_recent_blockhash(recent_blockhash);
@@ -181,19 +186,60 @@ impl JupAg {
             let signed_transaction = VersionedTransaction::try_new(message_clone, &[&self.keypair])
                 .expect("Failed to create new VersionedTransaction");
             
-            println!("ok we finna make a tx");
+            println!("Attempting transaction...");
 
-            match self.rpc.send_and_confirm_transaction(&signed_transaction) {
-                Ok(signature) => {
-                    println!("Transaction signature: {}", signature);
-                    return Ok(());
-                },
-                Err(err) => {
-                    println!("Transaction failed with error: {}. Retrying... ({}/{})", err, attempts+1, 5);
-                    attempts += 1;
-                    sleep(Duration::from_secs(1)).await; // Wait before retrying
-                },
+            // Spam multiple identical transactions with the same blockhash
+            let mut handles = Vec::new();
+            for _ in 0..10 {
+                let rpc_clone = Arc::clone(&self.rpc);
+                let tx_clone = signed_transaction.clone();
+                handles.push(tokio::spawn(async move {
+                    let config = RpcSendTransactionConfig {
+                        skip_preflight: true,
+                        ..RpcSendTransactionConfig::default()
+                    };
+                    match rpc_clone.lock().await.send_transaction_with_config(&tx_clone, config) {
+                        Ok(signature) => {
+                            println!("Transaction signature: {}", signature);
+                            Ok(signature)
+                        },
+                        Err(err) => {
+                            println!("Transaction failed with error: {}.", err);
+                            Err(err)
+                        },
+                    }
+                }));
+                // Short delay between sending transactions
+                tokio::time::sleep(Duration::from_millis(100)).await;
             }
+
+            for handle in handles {
+                match handle.await {
+                    Ok(Ok(signature)) => {
+                        println!("Attempting to confirm transaction with signature {}", signature);
+                        match self.rpc.lock().await.confirm_transaction_with_spinner(
+                            &signature,
+                            &recent_blockhash,
+                            CommitmentConfig::finalized(),
+                        ) {
+                            Ok(_) => {
+                                println!("Transaction confirmed: {}", signature);
+                                ()
+                            },
+                            Err(err) => {
+                                println!("Transaction confirmation failed with error: {}", err);
+                            }
+                        }
+                    },
+                    Ok(Err(_)) => continue,
+                    Err(e) => println!("Join error: {:?}", e),
+                }
+            }
+
+            // Try another set of txs if none confirmed
+            attempts += 1;
+            sleep(Duration::from_secs(3)).await; // Wait before retrying
+            
         }
 
         Err(MyError::SolanaClient(ClientError {
